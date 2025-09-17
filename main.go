@@ -123,8 +123,8 @@ func main() {
 	}
 	// Validate supported draft
 	if *draft != "" && (*draft != "draft-ietf-ntp-ntpv5-05" && *draft != "draft-ietf-ntp-ntpv5-06") {
-		fmt.Println("Error: draft can be either draft-ietf-ntp-ntpv5-05 or draft-ietf-ntp-ntpv5-06")
-		os.Exit(-100)
+		fmt.Println("WARNING: draft can be either draft-ietf-ntp-ntpv5-05 or draft-ietf-ntp-ntpv5-06. The code will use draft 05 header for parsing\n")
+		//os.Exit(-100)
 	}
 	if mode == "nts" {
 		measureNTS(host, *ipv, *timeout)

@@ -137,7 +137,6 @@ func buildNTPv5Request(draft string, debug_output *strings.Builder) ([]byte, uin
 	// Bytes 40-47: Tx Timestamp (uint64)
 	binary.BigEndian.PutUint64(buf[40:48], 0)
 	//draft := "draft-ietf-ntp-ntpv5-05"
-	fmt.Printf("eeee %v\n", draft)
 	if draft != "" {
 		payload := []byte(draft)
 		//fmt.Printf("len draft name %v\n", len(payload))
