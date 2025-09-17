@@ -7,7 +7,7 @@ You can compile the project with "GOOS=linux GOARCH=amd64 go build -o ntpnts_lin
 OBS:
 1) NTPv5 is still in draft mode and our tool tries to measure "draft-ietf-ntp-ntpv5-05" and "draft-ietf-ntp-ntpv5-06". At the moment, it should correctly send draft NTPv5 requests to a server,
    but the work is still in progress. If you find a bug in my implementation, please tell me
-
+2) -d does not currently work with NTS (I will update it in the next version)
   Current usage:
 ```
 Usage:

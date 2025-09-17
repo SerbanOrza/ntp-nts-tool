@@ -77,7 +77,6 @@ func decodeFlags(flags uint16) map[string]bool {
 //	func buildDraftIdentificationExtension(draftName string) []byte {
 //		payload := []byte(draftName)
 //		payloadLen := len(payload)
-//		// Total length must be 4-byte aligned
 //		totalLen := 4 + payloadLen
 //		if pad := totalLen % 4; pad != 0 {
 //			totalLen += 4 - pad
@@ -138,39 +137,29 @@ func buildNTPv5Request(draft string, debug_output *strings.Builder) ([]byte, uin
 	// Bytes 40-47: Tx Timestamp (uint64)
 	binary.BigEndian.PutUint64(buf[40:48], 0)
 	//draft := "draft-ietf-ntp-ntpv5-05"
+	fmt.Printf("eeee %v\n", draft)
 	if draft != "" {
 		payload := []byte(draft)
 		//fmt.Printf("len draft name %v\n", len(payload))
-		extLen := 1 + len(payload) // type + length + body
-		ext := make([]byte, extLen)
-		//2+2+23+1
+		//extLen := 1 + len(payload) // type + length + body
+		//len of draft is 23
+		//total length for this ext field: 2+2+23+1=27 but we need 28 to be multiple of 4
+		ext := make([]byte, 28)
 		binary.BigEndian.PutUint16(ext[0:2], 0xF5FF) // type
-		binary.BigEndian.PutUint16(ext[2:4], 28)     //uint16(extLen)) // length
+		binary.BigEndian.PutUint16(ext[2:4], 28)     //I tried with 27, but the server would not respond
 		copy(ext[4:], payload)
-		debug_output.WriteString(fmt.Sprintf("len draft ext field: %v, content: %v\n", len(ext), ext))
+		debug_output.WriteString(fmt.Sprintf("len draft (sent) ext field: %v, content: %v\n", len(ext), ext))
 		buf = append(buf, ext...)
 
-		//payload := []byte("draft-ietf-ntp-ntpv5-06")
-		//extLen := 4 + len(payload)
-		//if rem := extLen % 4; rem != 0 {
-		//	extLen += 4 - rem
-		//}
-		//ext := make([]byte, 28)
-		//binary.BigEndian.PutUint16(ext[0:2], 0xF5FF)     // type
-		//binary.BigEndian.PutUint16(ext[2:4], uint16(23)) // length
-		//copy(ext[4:], payload)
-		//buf = append(buf, ext...)
 	}
 	//draftField := buildDraftIdentificationExtension("draft-ietf-ntp-ntpv5-05")
-	//paddFIeld := buildDPadd()
 	//buf = append(buf, draftField...)
-	//buf = append(buf, paddFIeld...)
 	return buf, clientCookie
 }
 
 func parseNTPv5Response(data []byte, clientCookie uint64, clientSentTime float64, draft string, debug_output *strings.Builder) (map[string]interface{}, error) {
 	//data received
-	debug_output.WriteString(fmt.Sprintf("received response: \n"))
+	debug_output.WriteString(fmt.Sprintf("received response: %v bytes\n", len(data)))
 	printHex4PerLine(data, debug_output)
 
 	if len(data) < HEADER_SIZE {
@@ -181,37 +170,76 @@ func parseNTPv5Response(data []byte, clientCookie uint64, clientSentTime float64
 		debug_output.WriteString(fmt.Sprintf("Extension part (%d bytes): % X\n", len(tail), tail))
 	} //11 101 100   0000 0011
 
-	header := NTPv5Header{}
+	//header := NTPv5Header_draft_05{}
 	buf := bytes.NewReader(data[:HEADER_SIZE])
-	if err := binary.Read(buf, binary.BigEndian, &header); err != nil {
-		return nil, err
+	info := map[string]interface{}{}
+	t2, t3 := -1.0, -1.0
+	//in draft 06 the order of fields changed
+	if draft == "draft-ietf-ntp-ntpv5-06" {
+		header := NTPv5Header_draft_06{}
+		// here it is important what header format we use
+		if err := binary.Read(buf, binary.BigEndian, &header); err != nil {
+			return nil, err
+		}
+		// the order for info is not important as it is a map.
+		info = map[string]interface{}{
+			"leap":                (header.LIVNMode >> 6) & 0x03,
+			"version":             (header.LIVNMode >> 3) & 0x07,
+			"mode":                header.LIVNMode & 0x07,
+			"stratum":             header.Stratum,
+			"poll":                header.Poll,
+			"precision":           header.Precision,
+			"root_delay":          time32ToSeconds(header.RootDelay),      //in seconds
+			"root_disp":           time32ToSeconds(header.RootDispersion), //in seconds
+			"timescale":           header.Timescale,
+			"era":                 header.Era,
+			"flags_raw":           header.Flags,
+			"flags_decoded":       decodeFlags(header.Flags),
+			"server_cookie":       header.ServerCookie,
+			"client_cookie":       header.ClientCookie,
+			"recv_timestamp":      header.RecvTimestamp,
+			"tx_timestamp":        header.TxTimestamp,
+			"client_cookie_valid": header.ClientCookie == clientCookie,
+		}
+		t2 = ntp64ToFloatSeconds(header.RecvTimestamp)
+		t3 = ntp64ToFloatSeconds(header.TxTimestamp)
+	} else {
+		header := NTPv5Header_draft_05{}
+		// here it is important what header format we use
+		if err := binary.Read(buf, binary.BigEndian, &header); err != nil {
+			return nil, err
+		}
+		info = map[string]interface{}{
+			"leap":                (header.LIVNMode >> 6) & 0x03,
+			"version":             (header.LIVNMode >> 3) & 0x07,
+			"mode":                header.LIVNMode & 0x07,
+			"stratum":             header.Stratum,
+			"poll":                header.Poll,
+			"precision":           header.Precision,
+			"timescale":           header.Timescale,
+			"era":                 header.Era,
+			"flags_raw":           header.Flags,
+			"flags_decoded":       decodeFlags(header.Flags),
+			"root_delay":          time32ToSeconds(header.RootDelay),      //in seconds
+			"root_disp":           time32ToSeconds(header.RootDispersion), //in seconds
+			"server_cookie":       header.ServerCookie,
+			"client_cookie":       header.ClientCookie,
+			"recv_timestamp":      header.RecvTimestamp,
+			"tx_timestamp":        header.TxTimestamp,
+			"client_cookie_valid": header.ClientCookie == clientCookie,
+		}
+		t2 = ntp64ToFloatSeconds(header.RecvTimestamp)
+		t3 = ntp64ToFloatSeconds(header.TxTimestamp)
 	}
 
-	info := map[string]interface{}{
-		"leap":                (header.LIVNMode >> 6) & 0x03,
-		"version":             (header.LIVNMode >> 3) & 0x07,
-		"mode":                header.LIVNMode & 0x07,
-		"stratum":             header.Stratum,
-		"poll":                header.Poll,
-		"precision":           header.Precision,
-		"timescale":           header.Timescale,
-		"era":                 header.Era,
-		"flags_raw":           header.Flags,
-		"flags_decoded":       decodeFlags(header.Flags),
-		"root_delay":          time32ToSeconds(header.RootDelay),      //in seconds
-		"root_disp":           time32ToSeconds(header.RootDispersion), //in seconds
-		"server_cookie":       header.ServerCookie,
-		"client_cookie":       header.ClientCookie,
-		"recv_timestamp":      header.RecvTimestamp,
-		"tx_timestamp":        header.TxTimestamp,
-		"client_cookie_valid": header.ClientCookie == clientCookie,
-	}
 	t4_uint := nowToNtpUint64()
 	t4 := ntp64ToFloatSeconds(t4_uint)
 	info["client_recv_time"] = t4_uint
 
 	if draft != "" {
 		info["draft"] = draft
+	} else {
+		info["draft"] = "did not use an extension field for draft"
 	}
 
 	// Parse extension fields (if any)
@@ -236,8 +264,8 @@ func parseNTPv5Response(data []byte, clientCookie uint64, clientSentTime float64
 	}
 	//add offset and rtt
 	t1 := clientSentTime
-	t2 := ntp64ToFloatSeconds(header.RecvTimestamp)
-	t3 := ntp64ToFloatSeconds(header.TxTimestamp)
+	//t2 := ntp64ToFloatSeconds(header.RecvTimestamp)
+	//t3 := ntp64ToFloatSeconds(header.TxTimestamp)
 
 	info["offset_s"] = ((t2 - t1) + (t3 - t4)) / 2 //in seconds
 	info["rtt_s"] = (t4 - t1) - (t3 - t2)          //in seconds

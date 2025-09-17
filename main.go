@@ -31,7 +31,7 @@ draft modes (available):
     draft_ntpv5 <host_ip> <draft> <timeout_s>
 
 where:
-	- <mode> can be "nts" (with ntpv4) or an NTP version: ntpv1,ntpv2,ntpv3,ntpv4,ntpv5
+	- <mode> can be "nts" (with ntpv4), draft_ntpv5 or an NTP version: ntpv1,ntpv2,ntpv3,ntpv4,ntpv5
 	- <host> can be a domain name or an IP address
 	- timeout is a float64 in seconds
 	- [-draft <string>] the string can be "draft-ietf-ntp-ntpv5-05" or "draft-ietf-ntp-ntpv5-06" 
@@ -121,33 +121,17 @@ func main() {
 		fmt.Println("Error: timeout must be >0 ")
 		os.Exit(-100)
 	}
-
-	// --- Example usage ---
-	//fmt.Println("Mode:", mode)
-	//fmt.Println("Host:", host)
-	//fmt.Println("Draft:", *draft)
-	//fmt.Println("Timeout:", *timeout)
-	//fmt.Println("Debug:", *debug_arg)
-	//fmt.Println("IP version:", *ipv)
-	//if len(args) < 1 || len(args) > 3 {
-	//	fmt.Println(usage_info)
-	//	os.Exit(-100)
-	//}
+	// Validate supported draft
+	if *draft != "" && (*draft != "draft-ietf-ntp-ntpv5-05" && *draft != "draft-ietf-ntp-ntpv5-06") {
+		fmt.Println("Error: draft can be either draft-ietf-ntp-ntpv5-05 or draft-ietf-ntp-ntpv5-06")
+		os.Exit(-100)
+	}
 	if mode == "nts" {
 		measureNTS(host, *ipv, *timeout)
 		os.Exit(0)
 	}
 	//ntp versions part
-	//time.Sleep(400 * time.Millisecond)
 	var output strings.Builder
-	//if len(args) == 3 {
-	//	timeout_new, err := strconv.ParseFloat(args[2], 64)
-	//	if err != nil {
-	//		fmt.Println("timeout needs to be a number (int or float)")
-	//		os.Exit(-100)
-	//	}
-	//	timeout = timeout_new
-	//}
 	result, debug, err := map[string]interface{}{}, "", 0
 	if mode == "ntpv1" {
 		result, debug, err = performNTPv1Measurement(host, *timeout) //very unlikely to receive an answer as nobody supports ntpv1 anymore
@@ -158,7 +142,7 @@ func main() {
 	} else if mode == "ntpv4" {
 		result, debug, err = performNTPv4Measurement(host, *timeout)
 	} else if mode == "ntpv5" {
-		result, debug, err = performNTPv5Measurement(host, *timeout, "")
+		result, debug, err = performNTPv5Measurement(host, *timeout, *draft) // or ""
 	} else if mode == "draft_ntpv5" {
 		result, debug, err = performNTPv5Measurement(host, *timeout, *draft)
 	} else {
@@ -170,11 +154,12 @@ func main() {
 	if *debugArg {
 		fmt.Println(debug + "\nFinal result:\n")
 	}
-	output.WriteString("\n")
 	if err != 0 { //measurement failed. Show the error message
 		fmt.Println(result["error"])
 	} else {
+		//output is supposed to be empty until here
 		jsonToString(result, &output)
+		output.WriteString("\n")
 		fmt.Print(output.String())
 	}
 	os.Exit(err)
