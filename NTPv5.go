@@ -156,7 +156,7 @@ func buildNTPv5Request(draft string, debug_output *strings.Builder) ([]byte, uin
 	return buf, clientCookie
 }
 
-func parseNTPv5Response(data []byte, clientCookie uint64, clientSentTime float64, draft string, debug_output *strings.Builder) (map[string]interface{}, error) {
+func parseNTPv5Response(data []byte, clientCookie uint64, clientSentTime uint64, t4_uint uint64, draft string, debug_output *strings.Builder) (map[string]interface{}, error) {
 	//data received
 	debug_output.WriteString(fmt.Sprintf("received response: %v bytes\n", len(data)))
 	printHex4PerLine(data, debug_output)
@@ -231,7 +231,6 @@ func parseNTPv5Response(data []byte, clientCookie uint64, clientSentTime float64
 		t3 = ntp64ToFloatSeconds(header.TxTimestamp)
 	}
 
-	t4_uint := nowToNtpUint64()
 	t4 := ntp64ToFloatSeconds(t4_uint)
 	info["client_recv_time"] = t4_uint
 
@@ -262,7 +261,13 @@ func parseNTPv5Response(data []byte, clientCookie uint64, clientSentTime float64
 		info["extensions"] = exts
 	}
 	//add offset and rtt
-	t1 := clientSentTime
+	t1 := ntp64ToFloatSeconds(clientSentTime)
+	info["orig_timestamp"] = clientSentTime
+	if info["recv_timestamp"] == uint64(0) {
+		info["anomaly"] = "timestamps are invalid, recv_timestamp (t2) is 0"
+	} else if (info["tx_timestamp"]) == uint64(0) {
+		info["anomaly"] = "timestamps are invalid, tx_timestamp (t3) is 0"
+	}
 	//t2 := ntp64ToFloatSeconds(header.RecvTimestamp)
 	//t3 := ntp64ToFloatSeconds(header.TxTimestamp)
 
@@ -300,7 +305,7 @@ func performNTPv5Measurement(server string, timeout float64, draft string) (map[
 	}(conn)
 	output.WriteString(fmt.Sprintf("connected to %v\n", addr))
 
-	t1 := ntp64ToFloatSeconds(nowToNtpUint64())
+	t1 := nowToNtpUint64()
 	req, client_cookie := buildNTPv5Request(draft, &output)
 	output.WriteString(fmt.Sprintf("Packet ntpv5 size sent: %d bytes\n", len(req)))
 	_, err = conn.Write(req)
@@ -330,8 +335,10 @@ func performNTPv5Measurement(server string, timeout float64, draft string) (map[
 		error_message["error"] = m
 		return error_message, output.String(), 3
 	}
-
-	result, err := parseNTPv5Response(resp[:n], client_cookie, t1, draft, &output)
+	t4_uint := nowToNtpUint64()
+	// parsing response
+	//IMPORTANT. Check if the returned version is NTPv5, otherwise, parse according to the right NTP version
+	result, err := parseAccordingToRightVersion(resp[:n], t1, t4_uint, client_cookie, draft, &output) //parseNTPv5Response(resp[:n], client_cookie, t1, draft, &output)
 	if err != nil {
 		m := fmt.Sprintf("error parsing response: %v\n", err)
 		output.WriteString(m)
@@ -341,7 +348,4 @@ func performNTPv5Measurement(server string, timeout float64, draft string) (map[
 		return error_message, output.String(), 4
 	}
 	return result, output.String(), 0
-	//jsonToString(result, &output)
-	//fmt.Print(output.String())
-	//os.Exit(0)
 }

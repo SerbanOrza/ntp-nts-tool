@@ -184,7 +184,7 @@ func check_all_ntp_versions(host string, timeout float64, draft_ntpv5 string, sh
 		fmt.Println(debug)
 	}
 	//ntpv2
-	time.Sleep(500 * time.Millisecond) // wait a bit to not spam the server
+	time.Sleep(1000 * time.Millisecond) // wait a bit to not spam the server
 	if show_debug {
 		fmt.Printf("Trying NTPv2...\n")
 	}
@@ -200,7 +200,7 @@ func check_all_ntp_versions(host string, timeout float64, draft_ntpv5 string, sh
 		fmt.Println(debug)
 	}
 	//ntpv3
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(1000 * time.Millisecond)
 	if show_debug {
 		fmt.Printf("Trying NTPv3...\n")
 	}
@@ -216,7 +216,7 @@ func check_all_ntp_versions(host string, timeout float64, draft_ntpv5 string, sh
 		fmt.Println(debug)
 	}
 	//ntpv4
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(1000 * time.Millisecond)
 	if show_debug {
 		fmt.Printf("Trying NTPv4...\n")
 	}
@@ -232,7 +232,7 @@ func check_all_ntp_versions(host string, timeout float64, draft_ntpv5 string, sh
 		fmt.Println(debug)
 	}
 	//ntpv5
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(1000 * time.Millisecond)
 	if show_debug {
 		fmt.Printf("Trying NTPv5 with draft: %v ...\n", draft_ntpv5)
 	}

@@ -39,6 +39,27 @@ func ntp64ToFloatSeconds(ntp uint64) float64 {
 	frac := float64(ntp&0xFFFFFFFF) / 4294967296.0 // fractional part
 	return seconds + frac
 }
+func getNtpVersionInResponse(data []byte) uint8 {
+	livmodeByte := uint8(data[0])
+	version := uint8((livmodeByte >> 3) & 0x07)
+	return version
+}
+
+func parseAccordingToRightVersion(data []byte, t1_uint uint64, t4_uint uint64, client_cookie uint64, draft string, debug_output *strings.Builder) (map[string]interface{}, error) {
+	version := getNtpVersionInResponse(data)
+	if version == uint8(1) {
+		return parseNTPv1Response(data, t1_uint, t4_uint)
+	} else if version == uint8(2) || version == uint8(3) {
+		return parseNTPv3Response(data, t1_uint, t4_uint)
+	} else if version == uint8(4) {
+		return parseNTPv4Response(data, t1_uint, t4_uint, debug_output)
+	} else if version == uint8(5) {
+		return parseNTPv5Response(data, client_cookie, t1_uint, t4_uint, draft, debug_output)
+	} else {
+		//unknow version
+		return map[string]interface{}{}, fmt.Errorf("unknow version: %v", version)
+	}
+}
 
 func printJson(server string, data map[string]interface{}) {
 	jsonData, err := json.MarshalIndent(data, "", "  ")

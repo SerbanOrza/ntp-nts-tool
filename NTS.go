@@ -79,7 +79,7 @@ func measureNTS(host string, ipvType string, timeout float64) {
 		if err_code == 0 {
 			//now we now the domain name is NTS. Try to get the wanted IP family
 			//wait a bit to not scary the NTS server
-			time.Sleep(500 * time.Millisecond)
+			time.Sleep(600 * time.Millisecond)
 			result_ip_family, err_code_ip_family := measureDomainNameWithIPFamily(host, ipvType, timeout)
 			if err_code_ip_family == 0 {
 				//success, we got the wanted IP family

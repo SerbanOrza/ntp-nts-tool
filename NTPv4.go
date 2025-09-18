@@ -31,7 +31,7 @@ type NTPv4Header struct {
 	TxTimestamp    uint64
 }
 
-func buildNTPv4Request() ([]byte, float64) {
+func buildNTPv4Request() ([]byte, uint64) {
 	req := make([]byte, NTP_PACKET_SIZE)
 
 	// LI = 0 (no warning), VN = 4, Mode = 3 (client)
@@ -40,10 +40,10 @@ func buildNTPv4Request() ([]byte, float64) {
 	t1 := nowToNtpUint64() //timeToNtp64(time.Now())
 	binary.BigEndian.PutUint64(req[40:], t1)
 
-	return req, ntp64ToFloatSeconds(t1)
+	return req, t1
 }
 
-func parseNTPv4Response(data []byte, t1 float64, t4_uint uint64, debug_output *strings.Builder) (map[string]interface{}, error) {
+func parseNTPv4Response(data []byte, t1_uint uint64, t4_uint uint64, debug_output *strings.Builder) (map[string]interface{}, error) {
 	if len(data) < NTP_PACKET_SIZE {
 		return nil, fmt.Errorf("response too short: %d bytes", len(data))
 	}
@@ -55,6 +55,7 @@ func parseNTPv4Response(data []byte, t1 float64, t4_uint uint64, debug_output *s
 		return nil, err
 	}
 
+	t1 := ntp64ToFloatSeconds(t1_uint)
 	t2 := ntp64ToFloatSeconds(h.RecvTimestamp)
 	t3 := ntp64ToFloatSeconds(h.TxTimestamp)
 	t4 := ntp64ToFloatSeconds(t4_uint)
@@ -73,12 +74,19 @@ func parseNTPv4Response(data []byte, t1 float64, t4_uint uint64, debug_output *s
 		"root_disp":        time32ToSeconds(h.RootDispersion),
 		"ref_id":           h.RefID,
 		"ref_timestamp":    h.RefTimestamp,
-		"orig_timestamp":   h.OrigTimestamp,
-		"recv_timestamp":   h.RecvTimestamp,
-		"tx_timestamp":     h.TxTimestamp,
-		"client_recv_time": t4_uint, //we add this field to be shown in the results
+		"orig_timestamp":   h.OrigTimestamp, //t1
+		"recv_timestamp":   h.RecvTimestamp, //t2
+		"tx_timestamp":     h.TxTimestamp,   //t3
+		"client_recv_time": t4_uint,         //we add this field to be shown in the results
 		"rtt":              rtt,
 		"offset":           offset,
+	}
+	if info["orig_timestamp"] == uint64(0) {
+		info["anomaly"] = "timestamps are invalid, orig_timestamp (t1) is 0"
+	} else if info["recv_timestamp"] == uint64(0) {
+		info["anomaly"] = "timestamps are invalid, recv_timestamp (t2) is 0"
+	} else if info["tx_timestamp"] == uint64(0) {
+		info["anomaly"] = "timestamps are invalid, tx_timestamp (t3) is 0"
 	}
 
 	// Check if there are extension fields after the 48-byte header
@@ -157,9 +165,10 @@ func performNTPv4Measurement(server string, timeout float64) (map[string]interfa
 		return error_message, output.String(), 3
 	}
 
-	//t4 := ntp64ToFloatSeconds(nowToNtpUint64())
-	t4 := nowToNtpUint64()
-	result, err := parseNTPv4Response(resp[:n], t1, t4, &output)
+	t4_uint := nowToNtpUint64()
+
+	//IMPORTANT. Check if the returned version is NTPv5, otherwise, parse according to the right NTP version
+	result, err := parseAccordingToRightVersion(resp[:n], t1, t4_uint, 0, "", &output) //parseNTPv4Response(resp[:n], t1, t4, &output)
 
 	if err != nil {
 		m := fmt.Sprintf("error reading/parsing response: %v\n", err)
@@ -169,8 +178,4 @@ func performNTPv4Measurement(server string, timeout float64) (map[string]interfa
 		return error_message, output.String(), 4
 	}
 	return result, output.String(), 0
-	//jsonToString(result, &output)
-	//fmt.Print(output.String())
-	////os.Exit(0)
-	//return "", "", 0
 }

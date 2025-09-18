@@ -24,7 +24,7 @@ type NTPv3Header struct { //same as NTPv4
 	TxTimestamp    uint64
 }
 
-func buildNTPv3or2Request(ntpVersion int) ([]byte, float64) {
+func buildNTPv3or2Request(ntpVersion int) ([]byte, uint64) {
 	req := make([]byte, NTP_PACKET_SIZE)
 
 	// LI = 0 (no warning), VN = 2 or 3, Mode = 3 (client)
@@ -36,10 +36,10 @@ func buildNTPv3or2Request(ntpVersion int) ([]byte, float64) {
 	t1 := nowToNtpUint64() //timeToNtp64(time.Now())
 	binary.BigEndian.PutUint64(req[40:], t1)
 
-	return req, ntp64ToFloatSeconds(t1)
+	return req, t1
 }
 
-func parseNTPv3Response(data []byte, t1 float64, t4_uint uint64) (map[string]interface{}, error) {
+func parseNTPv3Response(data []byte, t1_uint uint64, t4_uint uint64) (map[string]interface{}, error) {
 	if len(data) < NTP_PACKET_SIZE {
 		return nil, fmt.Errorf("response too short: %d bytes", len(data))
 	}
@@ -50,6 +50,7 @@ func parseNTPv3Response(data []byte, t1 float64, t4_uint uint64) (map[string]int
 		return nil, err
 	}
 
+	t1 := ntp64ToFloatSeconds(t1_uint)
 	t2 := ntp64ToFloatSeconds(h.RecvTimestamp)
 	t3 := ntp64ToFloatSeconds(h.TxTimestamp)
 	t4 := ntp64ToFloatSeconds(t4_uint)
@@ -75,7 +76,13 @@ func parseNTPv3Response(data []byte, t1 float64, t4_uint uint64) (map[string]int
 		"rtt":              rtt,
 		"offset":           offset,
 	}
-
+	if info["orig_timestamp"] == uint64(0) {
+		info["anomaly"] = "timestamps are invalid, orig_timestamp (t1) is 0"
+	} else if info["recv_timestamp"] == uint64(0) {
+		info["anomaly"] = "timestamps are invalid, recv_timestamp (t2) is 0"
+	} else if info["tx_timestamp"] == uint64(0) {
+		info["anomaly"] = "timestamps are invalid, tx_timestamp (t3) is 0"
+	}
 	return info, nil
 }
 
@@ -124,9 +131,10 @@ func performNTPv3Measurement(server string, timeout float64, ntpVersion int) (ma
 		return error_message, output.String(), 3
 	}
 
-	//t4 := ntp64ToFloatSeconds(nowToNtpUint64())
-	t4 := nowToNtpUint64()
-	result, err := parseNTPv3Response(resp[:n], t1, t4)
+	t4_uint := nowToNtpUint64()
+
+	//IMPORTANT. Check if the returned version is NTPv5, otherwise, parse according to the right NTP version
+	result, err := parseAccordingToRightVersion(resp[:n], t1, t4_uint, 0, "", &output) //parseNTPv3Response(resp[:n], t1, t4)
 
 	if err != nil {
 		m := fmt.Sprintf("error parsing response: %v\n", err)

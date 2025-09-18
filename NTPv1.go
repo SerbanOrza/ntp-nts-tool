@@ -23,7 +23,7 @@ type NTPv1Header struct {
 	TxTimestamp   uint64
 }
 
-func buildNTPv1Request() ([]byte, float64) {
+func buildNTPv1Request() ([]byte, uint64) {
 	req := make([]byte, 48)
 
 	// LI=0, Status=0 -> LIStatus = 0
@@ -39,13 +39,15 @@ func buildNTPv1Request() ([]byte, float64) {
 	t1 := nowToNtpUint64()
 	binary.BigEndian.PutUint64(req[40:], t1)
 
-	return req, ntp64ToFloatSeconds(t1)
+	return req, t1
 }
-func parseNTPv1Response(data []byte, t1, t4 float64) (map[string]interface{}, error) {
+func parseNTPv1Response(data []byte, t1_uint uint64, t4_uint uint64) (map[string]interface{}, error) {
 	if len(data) < 48 {
 		return nil, fmt.Errorf("response too short: %d bytes", len(data))
 	}
 
+	t1 := ntp64ToFloatSeconds(t1_uint)
+	t4 := ntp64ToFloatSeconds(t4_uint)
 	h := NTPv1Header{}
 	buf := bytes.NewReader(data[:48])
 	if err := binary.Read(buf, binary.BigEndian, &h); err != nil {
@@ -72,7 +74,13 @@ func parseNTPv1Response(data []byte, t1, t4 float64) (map[string]interface{}, er
 		"rtt":            rtt,
 		"offset":         offset,
 	}
-
+	if info["orig_timestamp"] == uint64(0) {
+		info["anomaly"] = "timestamps are invalid, orig_timestamp (t1) is 0"
+	} else if info["recv_timestamp"] == uint64(0) {
+		info["anomaly"] = "timestamps are invalid, recv_timestamp (t2) is 0"
+	} else if info["tx_timestamp"] == uint64(0) {
+		info["anomaly"] = "timestamps are invalid, tx_timestamp (t3) is 0"
+	}
 	return info, nil
 }
 
@@ -121,8 +129,8 @@ func performNTPv1Measurement(server string, timeout float64) (map[string]interfa
 		return error_message, output.String(), 3
 	}
 
-	t4 := ntp64ToFloatSeconds(nowToNtpUint64())
-	result, err := parseNTPv1Response(resp[:n], t1, t4)
+	t4_uint := nowToNtpUint64()
+	result, err := parseAccordingToRightVersion(resp[:n], t1, t4_uint, 0, "", &output) //parseNTPv1Response(resp[:n], t1, t4_uint)
 
 	if err != nil {
 		m := fmt.Sprintf("error parsing response: %v\n", err)
