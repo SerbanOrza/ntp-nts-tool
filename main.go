@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 )
 
 /*
@@ -31,7 +32,7 @@ draft modes (available):
     draft_ntpv5 <host_ip> <draft> <timeout_s>
 
 where:
-	- <mode> can be "nts" (with ntpv4), draft_ntpv5 or an NTP version: ntpv1,ntpv2,ntpv3,ntpv4,ntpv5
+	- <mode> can be "nts" (with ntpv4), "draft_ntpv5", "allntpv" (to measure all possible NTP versions) or an NTP version: ntpv1,ntpv2,ntpv3,ntpv4,ntpv5
 	- <host> can be a domain name or an IP address
 	- timeout is a float64 in seconds
 	- [-draft <string>] the string can be "draft-ietf-ntp-ntpv5-05" or "draft-ietf-ntp-ntpv5-06" 
@@ -82,10 +83,7 @@ Warning:
     host vs measured server ip
 */
 func main() {
-	//mainn()
-	//os.Exit(0)
 	args := os.Args[1:]
-	//server := "2001:4860:4806:c::" //"time.cloudflare.com" //"time.apple.com" //"ntp0.testdns.nl" //"ntp0.testdns.nl" //"time.apple.com"
 	//server := "139.84.137.244" //"ntpd-rs.sidnlabs.nl" //args := os.Args[1:]
 	//server := "ntpd-rs.sidnlabs.nl"
 	//server := "ntp5.example.net" //args := os.Args[1:]
@@ -145,6 +143,8 @@ func main() {
 		result, debug, err = performNTPv5Measurement(host, *timeout, *draft) // or ""
 	} else if mode == "draft_ntpv5" {
 		result, debug, err = performNTPv5Measurement(host, *timeout, *draft)
+	} else if mode == "allntpv" {
+		result, debug, err = check_all_ntp_versions(host, *timeout, *draft, *debugArg)
 	} else {
 		fmt.Println("unknown command\n")
 		fmt.Println(usage_info)
@@ -163,4 +163,90 @@ func main() {
 		fmt.Print(output.String())
 	}
 	os.Exit(err)
+}
+func check_all_ntp_versions(host string, timeout float64, draft_ntpv5 string, show_debug bool) (map[string]interface{}, string, int) {
+	var output strings.Builder
+	finalResult := map[string]interface{}{}
+	result, debug, err := map[string]interface{}{}, "", 0
+	//ntpv1
+	if show_debug {
+		fmt.Printf("Trying NTPv1...\n")
+	}
+	result, debug, err = performNTPv1Measurement(host, timeout)
+	output.WriteString(debug)
+	info1 := map[string]interface{}{}
+	info1["type"] = "ntpv1"
+	info1["result"] = result
+	info1["return_code"] = err
+	finalResult["ntpv1"] = info1
+	if show_debug {
+		fmt.Printf("NTPv1 finished with return code: %v\n", err)
+		fmt.Println(debug)
+	}
+	//ntpv2
+	time.Sleep(500 * time.Millisecond) // wait a bit to not spam the server
+	if show_debug {
+		fmt.Printf("Trying NTPv2...\n")
+	}
+	result, debug, err = performNTPv3Measurement(host, timeout, 2)
+	output.WriteString(debug)
+	info2 := map[string]interface{}{}
+	info2["type"] = "ntpv2"
+	info2["result"] = result
+	info2["return_code"] = err
+	finalResult["ntpv2"] = info2
+	if show_debug {
+		fmt.Printf("NTPv2 finished with return code: %v\n", err)
+		fmt.Println(debug)
+	}
+	//ntpv3
+	time.Sleep(500 * time.Millisecond)
+	if show_debug {
+		fmt.Printf("Trying NTPv3...\n")
+	}
+	result, debug, err = performNTPv3Measurement(host, timeout, 3)
+	output.WriteString(debug)
+	info3 := map[string]interface{}{}
+	info3["type"] = "ntpv3"
+	info3["result"] = result
+	info3["return_code"] = err
+	finalResult["ntpv3"] = info3
+	if show_debug {
+		fmt.Printf("NTPv3 finished with return code: %v\n", err)
+		fmt.Println(debug)
+	}
+	//ntpv4
+	time.Sleep(500 * time.Millisecond)
+	if show_debug {
+		fmt.Printf("Trying NTPv4...\n")
+	}
+	result, debug, err = performNTPv4Measurement(host, timeout)
+	output.WriteString(debug)
+	info4 := map[string]interface{}{}
+	info4["type"] = "ntpv4"
+	info4["result"] = result
+	info4["return_code"] = err
+	finalResult["ntpv4"] = info4
+	if show_debug {
+		fmt.Printf("NTPv4 finished with return code: %v\n", err)
+		fmt.Println(debug)
+	}
+	//ntpv5
+	time.Sleep(500 * time.Millisecond)
+	if show_debug {
+		fmt.Printf("Trying NTPv5 with draft: %v ...\n", draft_ntpv5)
+	}
+	result, debug, err = performNTPv5Measurement(host, timeout, draft_ntpv5)
+	output.WriteString(debug)
+	info5 := map[string]interface{}{}
+	info5["type"] = "ntpv5"
+	info5["result"] = result
+	info5["return_code"] = err
+	finalResult["ntpv5"] = info5
+	if show_debug {
+		fmt.Printf("NTPv5 finished with return code: %v\n", err)
+		fmt.Println(debug)
+	}
+
+	return finalResult, "", 0
 }
