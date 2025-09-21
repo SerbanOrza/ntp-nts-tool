@@ -73,36 +73,6 @@ func decodeFlags(flags uint16) map[string]bool {
 		"auth_nak":     flags&0x4 != 0,
 	}
 }
-
-//	func buildDraftIdentificationExtension(draftName string) []byte {
-//		payload := []byte(draftName)
-//		payloadLen := len(payload)
-//		totalLen := 4 + payloadLen
-//		if pad := totalLen % 4; pad != 0 {
-//			totalLen += 4 - pad
-//		}
-//		ext := make([]byte, totalLen)
-//		binary.BigEndian.PutUint16(ext[0:2], 0xF5FF)
-//		binary.BigEndian.PutUint16(ext[2:4], uint16(totalLen))
-//		copy(ext[4:], payload)
-//		// Remaining padding bytes are already zero-initialized by make()
-//		return ext
-//	}
-//
-//	func buildNTPv5Request3() ([]byte, uint64) {
-//		clientCookie := rand.Uint64()
-//		fmt.Print(len("draft-ietf-ntp-ntpv5-05"))
-//		buf := make([]byte, HEADER_SIZE)
-//
-//		// LI|VN|Mode
-//		buf[0] = (0 << 6) | (NTPV5_VERSION << 3) | 3
-//		// rest already zero-initialized, just fill client cookie
-//		binary.BigEndian.PutUint64(buf[24:32], clientCookie)
-//
-//		draftField := buildDraftIdentificationExtension("draft-ietf-ntp-ntpv5-05")
-//		buf = append(buf, draftField...)
-//		return buf, clientCookie
-//	}
 func buildNTPv5Request(draft string, debug_output *strings.Builder) ([]byte, uint64) {
 	clientCookie := rand.Uint64()
 	buf := make([]byte, 48)
@@ -136,7 +106,6 @@ func buildNTPv5Request(draft string, debug_output *strings.Builder) ([]byte, uin
 	binary.BigEndian.PutUint64(buf[32:40], 0)
 	// Bytes 40-47: Tx Timestamp (uint64)
 	binary.BigEndian.PutUint64(buf[40:48], 0)
-	//draft := "draft-ietf-ntp-ntpv5-05"
 	if draft != "" {
 		payload := []byte(draft)
 		//fmt.Printf("len draft name %v\n", len(payload))
@@ -145,14 +114,12 @@ func buildNTPv5Request(draft string, debug_output *strings.Builder) ([]byte, uin
 		//total length for this ext field: 2+2+23+1=27 but we need 28 to be multiple of 4
 		ext := make([]byte, 28)
 		binary.BigEndian.PutUint16(ext[0:2], 0xF5FF) // type
-		binary.BigEndian.PutUint16(ext[2:4], 28)     //I tried with 27, but the server would not respond
+		binary.BigEndian.PutUint16(ext[2:4], 27)     //it should be 27
 		copy(ext[4:], payload)
 		debug_output.WriteString(fmt.Sprintf("len draft (sent) ext field: %v, content: %v\n", len(ext), ext))
 		buf = append(buf, ext...)
-
+		//sudo chronyd -Q -t 10 -d -d -d 'server ntp0.testdns.nl xleave version 5'
 	}
-	//draftField := buildDraftIdentificationExtension("draft-ietf-ntp-ntpv5-05")
-	//buf = append(buf, draftField...)
 	return buf, clientCookie
 }
 
