@@ -119,9 +119,10 @@ func main() {
 		fmt.Println("Error: timeout must be >0 ")
 		os.Exit(-100)
 	}
+	warning_m := ""
 	// Validate supported draft
 	if *draft != "" && (*draft != "draft-ietf-ntp-ntpv5-05" && *draft != "draft-ietf-ntp-ntpv5-06") {
-		fmt.Println("WARNING: draft can be either draft-ietf-ntp-ntpv5-05 or draft-ietf-ntp-ntpv5-06. The code will use draft 05 header for parsing\n")
+		warning_m = fmt.Sprintln("WARNING: draft can be either draft-ietf-ntp-ntpv5-05 or draft-ietf-ntp-ntpv5-06. The code will use draft 05 header for parsing\n")
 		//os.Exit(-100)
 	}
 	if mode == "nts" {
@@ -141,10 +142,19 @@ func main() {
 		result, debug, err = performNTPv4Measurement(host, *timeout)
 	} else if mode == "ntpv5" {
 		result, debug, err = performNTPv5Measurement(host, *timeout, *draft) // or ""
+		if warning_m != "" {
+			result["warning"] = warning_m
+		}
 	} else if mode == "draft_ntpv5" {
 		result, debug, err = performNTPv5Measurement(host, *timeout, *draft)
+		if warning_m != "" {
+			result["warning"] = warning_m
+		}
 	} else if mode == "allntpv" {
 		result, debug, err = check_all_ntp_versions(host, *timeout, *draft, *debugArg)
+		if warning_m != "" {
+			result["warning"] = warning_m
+		}
 	} else {
 		fmt.Println("unknown command\n")
 		fmt.Println(usage_info)
