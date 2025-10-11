@@ -238,8 +238,8 @@ func parseNTPv5Response(data []byte, clientCookie uint64, clientSentTime uint64,
 	//t2 := ntp64ToFloatSeconds(header.RecvTimestamp)
 	//t3 := ntp64ToFloatSeconds(header.TxTimestamp)
 
-	info["offset_s"] = ((t2 - t1) + (t3 - t4)) / 2 //in seconds
-	info["rtt_s"] = (t4 - t1) - (t3 - t2)          //in seconds
+	info["offset"] = ((t2 - t1) + (t3 - t4)) / 2 //in seconds
+	info["rtt"] = (t4 - t1) - (t3 - t2)          //in seconds
 	return info, nil
 }
 
