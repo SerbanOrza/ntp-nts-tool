@@ -167,15 +167,22 @@ func performNTPv4Measurement(server string, timeout float64) (map[string]interfa
 
 	t4_uint := nowToNtpUint64()
 
+	// Get the server IP we actually measured
+	remoteAddr := conn.RemoteAddr().(*net.UDPAddr)
+	measuredIP := remoteAddr.IP.String()
 	//IMPORTANT. Check if the returned version is NTPv5, otherwise, parse according to the right NTP version
 	result, err := parseAccordingToRightVersion(resp[:n], t1, t4_uint, 0, "", &output) //parseNTPv4Response(resp[:n], t1, t4, &output)
 
 	if err != nil {
 		m := fmt.Sprintf("error reading/parsing response: %v\n", err)
 		output.WriteString(m)
-		//os.Exit(4)
 		error_message["error"] = m
 		return error_message, output.String(), 4
+	}
+
+	if result != nil {
+		result["Host"] = server
+		result["Measured server IP"] = measuredIP
 	}
 	return result, output.String(), 0
 }

@@ -130,6 +130,11 @@ func performNTPv1Measurement(server string, timeout float64) (map[string]interfa
 	}
 
 	t4_uint := nowToNtpUint64()
+
+	// Get the server IP we actually measured
+	remoteAddr := conn.RemoteAddr().(*net.UDPAddr)
+	measuredIP := remoteAddr.IP.String()
+
 	result, err := parseAccordingToRightVersion(resp[:n], t1, t4_uint, 0, "", &output) //parseNTPv1Response(resp[:n], t1, t4_uint)
 
 	if err != nil {
@@ -137,6 +142,11 @@ func performNTPv1Measurement(server string, timeout float64) (map[string]interfa
 		output.WriteString(m)
 		error_message["error"] = m
 		return error_message, output.String(), 4
+	}
+
+	if result != nil {
+		result["Host"] = server
+		result["Measured server IP"] = measuredIP
 	}
 	return result, output.String(), 0
 }

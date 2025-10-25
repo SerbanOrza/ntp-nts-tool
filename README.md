@@ -1,4 +1,5 @@
-This tool is mainly used by NTPinfo. 
+This tool is mainly used by NTPinfo.
+This tool provides you the raw results from performing NTP and NTS measurements.
 
 You can perform NTP and NTS measurements.
 
@@ -34,4 +35,92 @@ Obs:
 
 Example: ./program_name ntpv5 ntp0.testdns.nl -d -draft "draft-ietf-ntp-ntpv5-05" -t 8.2
          ./program_name ntpv2 time.google.com
+```
+### Examples
+
+Example of an **NTPv4** response format:
+```json
+{
+  "Host": <string>,
+  "Measured server IP": <string>,
+  "client_recv_time": <unsigned_int64>,
+  "leap": <int>,
+  "mode": <int>,
+  "offset": <double>,
+  "orig_timestamp": <unsigned_int64>,
+  "poll": <int8>,
+  "precision": <double>,
+  "recv_timestamp": <unsigned_int64>,
+  "ref_id": <uint32>,
+  "ref_timestamp": <unsigned_int64>,
+  "root_delay": <double>,
+  "root_disp": <double>,
+  "rtt": <double>,
+  "stratum": <int>,
+  "tx_timestamp": <unsigned_int64>,
+  "version": 4
+}
+```
+
+Example of a **draft NTPv5** response format:
+```json
+{
+  "Host": <string>,
+  "Measured server IP": <string>,
+  "client_cookie": <unsigned_int64>,
+  "client_cookie_valid": <bool>,
+  "client_recv_time": <unsigned_int64>,
+  "draft": <string>,
+  "era": <int>,
+  "flags_decoded": {
+    "auth_nak": <bool>,
+    "interleaved": <bool>,
+    "synchronized": <bool>
+  },
+  "flags_raw": <int>,
+  "leap": <int>,
+  "mode": <int>,
+  "offset": <double>,
+  "orig_timestamp": <unsigned_int64>,
+  "poll": <int8>,
+  "precision": <double>,
+  "recv_timestamp": <unsigned_int64>,
+  "root_delay": <double>,
+  "root_disp": <double>,
+  "rtt": <double>,
+  "server_cookie": <unsigned_int64>,
+  "stratum": <int>,
+  "timescale": <int>,
+  "tx_timestamp": <unsigned_int64>,
+  "version": 5
+}
+```
+
+Example of an **NTS** response:
+```json
+{
+  "Host": "ntpd-rs.sidnlabs.nl",
+  "Measured server IP": "2401:c080:3000:2945:5400:4ff:fe69:f923",
+  "Measured server port": "123",
+  "client_recv_time": 17052749908339855186,
+  "client_sent_time": 17052749907615849113,
+  "kissCode": "",
+  "leap": 0,
+  "minError": 0.741145376,
+  "mode": 4,
+  "offset": 0.825159143,
+  "poll": 1,
+  "precision": 0.000003814,
+  "ref_id": "133.243.238.243",
+  "ref_id_raw": "0x85f3eef3",
+  "ref_time": 17052749696910491648,
+  "root_delay": 0.043182373,
+  "root_disp": 0.00062561,
+  "root_dist": 0.106230563,
+  "rtt": 0.168027534,
+  "server_recv_time": 17052749917887107331,
+  "server_sent_time": 17052749911523050338,
+  "stratum": 2,
+  "version": 4
+}
 ```
