@@ -303,6 +303,10 @@ func performNTPv5Measurement(server string, timeout float64, draft string) (map[
 		return error_message, output.String(), 3
 	}
 	t4_uint := nowToNtpUint64()
+
+	// Get the server IP we actually measured
+	remoteAddr := conn.RemoteAddr().(*net.UDPAddr)
+	measuredIP := remoteAddr.IP.String()
 	// parsing response
 	//IMPORTANT. Check if the returned version is NTPv5, otherwise, parse according to the right NTP version
 	result, err := parseAccordingToRightVersion(resp[:n], t1, t4_uint, client_cookie, draft, &output) //parseNTPv5Response(resp[:n], client_cookie, t1, draft, &output)
@@ -313,6 +317,11 @@ func performNTPv5Measurement(server string, timeout float64, draft string) (map[
 		//os.Exit(4)
 		error_message["error"] = m
 		return error_message, output.String(), 4
+	}
+
+	if result != nil {
+		result["Host"] = server
+		result["Measured server IP"] = measuredIP
 	}
 	return result, output.String(), 0
 }
